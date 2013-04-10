@@ -81,20 +81,20 @@ unencrypted files, and the OpenSSL\cite{openssl-website}
 crypto\cite{openssl-evp} library to provide secure encryption.
 
 The filesystem itself is a simple mirrored pass-through filesystem. For
-example, if our pa5-encfs is mounted on the directory \textit{/tmp/pa5fs}
+example, if our pa4-encfs is mounted on the directory \textit{/tmp/pa4fs}
 and is set to mirror the directory \textit{/home/user}, then any
-action performed on the file \textit{/tmp/pa5fs/foo.txt}
+action performed on the file \textit{/tmp/pa4fs/foo.txt}
 will be translated into an action on the file
 \textit{/home/user/foo.txt}.
 
 Instead of just directly passing actions to the
-underlying mirrored file, however, your pa5-encfs system will perform encryption
+underlying mirrored file, however, your pa4-encfs system will perform encryption
 and decryption as necessary. Thus, if you create a new file
-\textit{/tmp/pa5fs/bar.txt} in the aforementioned setup
+\textit{/tmp/pa4fs/bar.txt} in the aforementioned setup
 and write some data to it, the data will
 be encrypted before being written to the backing
 \textit{/home/user/bar.txt} file. Likewise, if you were to read the
-\textit{/tmp/pa5fs/bar.txt} file, your filesystem would read the backing encrypted
+\textit{/tmp/pa4fs/bar.txt} file, your filesystem would read the backing encrypted
 \textit{/home/user/bar.txt} file and decrypt the contents before
 passing it to you. If you were to try to read
 the backing \textit{/home/user/bar.txt} file directly, you would just
@@ -141,11 +141,11 @@ In addition to the dependencies discussed above, you may need to
 enable extended attribute support on your system. This is done by
 adding the \texttt{user\_xattr} mount option to any mount point on
 which you wish to use extended attributes in your \texttt{/etc/fstab}
-auto-mount configuration file. For example, on the Ubuntu 10.04 CS3753
+auto-mount configuration file. For example, on the Ubuntu 12.04 CS3753
 VM, you must modify the following \texttt{/etc/fstab} line:
 
 \begin{verbatim}
-<file system>   <mount>  <type>  <options>          <dump>  <pass> 
+<file system>   <mount point>  <type>  <options>          <dump>  <pass> 
 ...
 UID=<Root UID>  /        ext4    errors=remount-ro  0       1
 ...
@@ -154,8 +154,8 @@ UID=<Root UID>  /        ext4    errors=remount-ro  0       1
 so that it reads:
 
 \begin{verbatim}
-<file system>   <mount>  <type>  <options>                     <dump>  <pass> 
-...
+<file system>   <mount point>  <type>  <options>                     <dump> 
+<pass> ...
 UID=<Root UID>  /        ext4    errors=remount-ro,user_xattr  0       1
 ...
 \end{verbatim}
@@ -171,19 +171,19 @@ be ignored. You must have root privileges to edit the
 \subsection{FUSE}
 
 The FUSE API\cite{fuse-refs} is the core API used in this
-assignment. It provides a means for implementing filesystem in
-userspace. Normally filesystem are implemented as kernel modules, but
+assignment. It provides a means for implementing filesystems in
+userspace. Normally filesystems are implemented as kernel modules, but
 this reduces your ability to utilize userspace libraries. FUSE
 provides a userspace interface for communicating with the FUSE kernel
 module that performs the necessary in-kernel work on behalf of your
 filesystem. Consult the Resources and References sections for additional
 details.
 
-All filesystem in Unix-like operating systems provide a common
+All filesystems in Unix-like operating systems provide a common
 interface to the user. We refer to this interface as the Virtual File
 System (VFS)\cite{linux-vfs}. The VFS is what allows us to write
 programs that can be completely agnostic to the underlying filesystems
-on a given system. Like all Unix filesystem, a FUSE filesystem also
+on a given system. Like all Unix filesystems, a FUSE filesystem also
 implements the VFS interface. The primary task involved in writing a
 FUSE filesystem is to provide implementations for all of the functions
 specified by the VFS.
@@ -221,7 +221,7 @@ The most common tripping point when using AES CBC
 encryption in that encryption and decryption is an all-or-nothing
 game. You can't encrypt or decrypt part of a file. You must encrypt or
 decrypt the entire file or none of it. This is due to the fact that CBC
-encryption schemes are state-full: the transform performed on each
+encryption schemes are stateful: the transform performed on each
 encrypted block is a function of the transformed output of the previous
 block. Thus, if we attempt to start encrypting or decrypting in
 the middle of a file, we will wind up with data that can not be
@@ -321,9 +321,9 @@ receive full credit.
 
 \begin{packed_item}
   \item {\bf Executable} Your filesystem should build a standard FUSE
-    executable file called \texttt{pa5-encfs} that mounts your file
+    executable file called \texttt{pa4-encfs} that mounts your file
     system. Your executable should accept the following call format:
-    \texttt{./pa5-encfs <Key Phrase> <Mirror Directory> <Mount Point>}.
+    \texttt{./pa4-encfs <Key Phrase> <Mirror Directory> <Mount Point>}.
   \item {\bf Read Behavior} When an encrypted file is read through your
     filesystem, it should be transparently decrypted and the plaintext
     data passed to the reading application. When an unencrypted file
@@ -347,7 +347,7 @@ receive full credit.
   indicating whether or not a file is encrypted using the the extended
   attributes for the corresponding mirror file. The flag should reside
   in the \texttt{user} namespace\cite{freedesktop-xattr} and be named
-  \texttt{pa5-encfs.encrypted}. It should have ascii text values of either
+  \texttt{pa4-encfs.encrypted}. It should have ascii text values of either
   ``true'' or ``false''. If no flag is detected on a specific file,
   then it should be assumed that the file is not encrypted (same
   behavior as detecting a flag with a value equal to ``false'').
@@ -389,7 +389,7 @@ Feel free to use it as a jumping off point (appropriately cited).
 When you submit your assignment, you must provide the following as a
 single archive file:
 \begin{packed_enum}
-\item A copy of your pa4-endfs FUSE code
+\item A copy of your pa4-encfs FUSE code
 \item A copy of any supporting code used by your filesystem
 \item A makefile that builds any necessary code
 \item A README explaining how to build and run your code
