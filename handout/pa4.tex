@@ -1,7 +1,8 @@
 % CSCI3753 - Operating Systems
-% Spring 2013
+% Spring 2014
 % Programming Assignment 4
 % By Andy Sayler (4/18/12) <www.andysayler.com>
+% Updated by Mike Gartrell (4/2/2014)
 
 \documentclass[12pt]{article}
 
@@ -62,9 +63,9 @@
 \author{
   CSCI 3753 - Operating Systems\\
   University of Colorado at Boulder\\
-  Spring 2013
+  Spring 2014
 }
-\date{\emph{Due Date: Friday, April 26th, 2013 11:55pm}}
+\date{\emph{Due Date: Friday, April 25th, 2014 11:55pm}}
 
 \begin{document}
 
@@ -117,25 +118,11 @@ is worth more credit then a broken ``full'' solution.
 This assignment has several dependencies that must be installed in order
 for the provided code to build correctly. On Ubuntu, start
 by running \texttt{sudo apt-get update} to update your package
-list. Then run \texttt{sudo apt-get install <package(s)>} to install the
-following packages:
-
-\begin{packed_item}
-\item \texttt{fuse-utils}
-\item \texttt{libfuse-dev}
-\item \texttt{openssl}
-\item \texttt{libssl-dev}
-\item \texttt{libssl-doc} (optional)
-\item \texttt{libssl1.0.0} or \texttt{libssl0.9.8}
-\item \texttt{attr}
-\item \texttt{attr-dev}
-\end{packed_item}
-
-You will need a working Internet connection in order to insure these
-packages install correctly. Note that you can also specify multiple
-packages in a single \texttt{sudo apt-get install <package(s)>}
-call. Some packages may have their own dependencies, but
-\texttt{apt-get} will automatically take care of installing these for you.
+list. Then run \texttt{sudo apt-get install cu-cs-csci3753} to install the
+required packages.  You will need a working Internet connection in order to
+insure these packages install correctly.  Some packages may have their own
+dependencies, but \texttt{apt-get} will automatically take care of installing 
+these for you.
 
 In addition to the dependencies discussed above, you may need to
 enable extended attribute support on your system. This is done by
@@ -284,7 +271,7 @@ order for this assignment:
   \texttt{fusexmp.c} only supports mirroring the root directory. Add an
   additional argument to \texttt{main} that allows the user to specify a specific
   directory to mirror (hint: \cite{pfeiffer-fuse} contains information
-  of passing FUSE private data via \texttt{fuse\_main} function 
+  on passing FUSE private data via the \texttt{fuse\_main} function 
   and accessing it within your VFS implementations).
   Then modify each VFS function to redirect
   actions to the corresponding file in the specified mirror directory

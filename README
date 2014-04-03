@@ -1,5 +1,5 @@
 CS3753 (Operating Systems)
-Spring 2013
+Spring 2014
 University of Colorado Boulder
 Programming Assignment 4
 A FUSE Encrypted File System
@@ -14,10 +14,12 @@ Inspired by work from Chris Wailes - 2010
 With help from:
 Junho Ahn - 2012
 
+Updated by Mike Gartrell - 2014
+
 Various files adopted from other exiting work.
 See file comments for specific details and references.
 
----Dependencies---
+---Dependencies (all included in cu-cs-csci3753 package)---
 fuse-utils
 openssl
 attr
@@ -52,7 +54,7 @@ xattr-util     - A simple program for manipulating extended attributes
 aes-crypt-util - A simple program for encrypting, decrypting, or copying files
 
 ---Documentation---
-handout/pa5.pdf             - Assignment Instructions and Tips
+handout/pa4.pdf             - Assignment Instructions and Tips
 http://youtu.be/VrMi6RaUNDs - Assignment Explanation Video 1
 
 ---Examples---
