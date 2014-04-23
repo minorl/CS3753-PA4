@@ -65,6 +65,8 @@ static void *xmp_init(struct fuse_conn_info *conn){
 
 static void xmp_destroy(void *userdata){
 	(void)userdata;
+	free(XMP_DATA->rootdir);
+	free(XMP_DATA->key);
 }
 
 // return full path, instead of relative path- stop mirroring / 
@@ -163,6 +165,8 @@ static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 	int res;
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+
+	fprintf(stderr, "%s\n", "mkdnode");
 
 	/* On Linux this could just be 'mknod(path, mode, rdev)' but this
 	   is more portable */
@@ -283,7 +287,7 @@ static int xmp_chmod(const char *path, mode_t mode)
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 
-	res = chmod(path, mode);
+	res = chmod(fullpath, mode);
 	if (res == -1)
 		return -errno;
 
@@ -297,7 +301,7 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid)
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 
-	res = lchown(path, uid, gid);
+	res = lchown(fullpath, uid, gid);
 	if (res == -1)
 		return -errno;
 
@@ -311,7 +315,7 @@ static int xmp_truncate(const char *path, off_t size)
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 
-	res = truncate(path, size);
+	res = truncate(fullpath, size);
 	if (res == -1)
 		return -errno;
 
@@ -331,7 +335,7 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 	tv[1].tv_sec = ts[1].tv_sec;
 	tv[1].tv_usec = ts[1].tv_nsec / 1000;
 
-	res = utimes(path, tv);
+	res = utimes(fullpath, tv);
 	if (res == -1)
 		return -errno;
 
@@ -345,7 +349,7 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 
-	res = open(path, fi->flags);
+	res = open(fullpath, fi->flags);
 	if (res == -1)
 		return -errno;
 
@@ -364,7 +368,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	fullpath = xmp_fullpath(path);
 
 	(void) fi;
-	fd = open(path, O_RDONLY);
+	fd = open(fullpath, O_RDONLY);
 	if (fd == -1)
 		return -errno;
 
@@ -387,7 +391,7 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 	fullpath = xmp_fullpath(path);
 
 	(void) fi;
-	fd = open(path, O_WRONLY);
+	fd = open(fullpath, O_WRONLY);
 	if (fd == -1)
 		return -errno;
 
@@ -406,7 +410,7 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 
-	res = statvfs(path, stbuf);
+	res = statvfs(fullpath, stbuf);
 	if (res == -1)
 		return -errno;
 
@@ -421,7 +425,7 @@ static int xmp_create(const char* path, mode_t mode, struct fuse_file_info* fi) 
 	fullpath = xmp_fullpath(path);
 
     int res;
-    res = creat(path, mode);
+    res = creat(fullpath, mode);
     if(res == -1)
 	return -errno;
 
@@ -457,9 +461,11 @@ static int xmp_fsync(const char *path, int isdatasync,
 static int xmp_setxattr(const char *path, const char *name, const char *value,
 			size_t size, int flags)
 {
-	int res = lsetxattr(path, name, value, size, flags);
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+
+	int res = lsetxattr(fullpath, name, value, size, flags);
+
 
 	if (res == -1)
 		return -errno;
@@ -470,9 +476,9 @@ static int xmp_setxattr(const char *path, const char *name, const char *value,
 static int xmp_getxattr(const char *path, const char *name, char *value,
 			size_t size)
 {
-	int res = lgetxattr(path, name, value, size);
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+	int res = lgetxattr(fullpath, name, value, size);
 
 	if (res == -1)
 		return -errno;
@@ -482,9 +488,10 @@ static int xmp_getxattr(const char *path, const char *name, char *value,
 
 static int xmp_listxattr(const char *path, char *list, size_t size)
 {
-	int res = llistxattr(path, list, size);
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+
+	int res = llistxattr(fullpath, list, size);
 
 	if (res == -1)
 		return -errno;
@@ -494,9 +501,10 @@ static int xmp_listxattr(const char *path, char *list, size_t size)
 
 static int xmp_removexattr(const char *path, const char *name)
 {
-	int res = lremovexattr(path, name);
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+
+	int res = lremovexattr(fullpath, name);
 
 	if (res == -1)
 		return -errno;
@@ -565,3 +573,15 @@ int main(int argc, char *argv[])
 
 	return fuse_main(argc, argv, &xmp_oper, xmp_data);
 }
+
+
+/*
+action
+
+encrypt 1
+decrypt 0
+copy -1
+
+do_crypt(inFile, outFile, action, key_str)
+
+*/
