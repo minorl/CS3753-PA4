@@ -42,17 +42,58 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/time.h>
+
+       //realpath
+#include <limits.h>
+#include <stdlib.h>
+
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
 
+#define XMP_DATA ((xmp_state *) fuse_get_context()->private_data)
+
+typedef struct {
+	char* rootdir;
+	char* key;
+} xmp_state;
+
+static void *xmp_init(struct fuse_conn_info *conn){
+	(void)conn; //hates warnings precious
+    return XMP_DATA;
+}
+
+static void xmp_destroy(void *userdata){
+	(void)userdata;
+}
+
+// return full path, instead of relative path- stop mirroring / 
+static char* xmp_fullpath(const char *path)
+{
+	char* fullpath;
+	int pathlen;
+
+	pathlen = strlen(path) + strlen(XMP_DATA->rootdir) + 1;
+
+	fullpath = malloc(pathlen*sizeof(char));
+
+    strcpy(fullpath, XMP_DATA->rootdir);
+    strcat(fullpath, path); 
+
+    return fullpath;
+}
+
 static int xmp_getattr(const char *path, struct stat *stbuf)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
-	res = lstat(path, stbuf);
+	res = lstat(fullpath, stbuf);
 	if (res == -1)
 		return -errno;
+
+	free(fullpath);
 
 	return 0;
 }
@@ -60,23 +101,29 @@ static int xmp_getattr(const char *path, struct stat *stbuf)
 static int xmp_access(const char *path, int mask)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
-	res = access(path, mask);
+	res = access(fullpath, mask);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_readlink(const char *path, char *buf, size_t size)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
-	res = readlink(path, buf, size - 1);
+	res = readlink(fullpath, buf, size - 1);
 	if (res == -1)
 		return -errno;
 
 	buf[res] = '\0';
+	free(fullpath);
 	return 0;
 }
 
@@ -90,7 +137,10 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	(void) offset;
 	(void) fi;
 
-	dp = opendir(path);
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
+	dp = opendir(fullpath);
 	if (dp == NULL)
 		return -errno;
 
@@ -104,125 +154,168 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	}
 
 	closedir(dp);
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	/* On Linux this could just be 'mknod(path, mode, rdev)' but this
 	   is more portable */
 	if (S_ISREG(mode)) {
-		res = open(path, O_CREAT | O_EXCL | O_WRONLY, mode);
+		res = open(fullpath, O_CREAT | O_EXCL | O_WRONLY, mode);
 		if (res >= 0)
 			res = close(res);
 	} else if (S_ISFIFO(mode))
-		res = mkfifo(path, mode);
+		res = mkfifo(fullpath, mode);
 	else
-		res = mknod(path, mode, rdev);
+		res = mknod(fullpath, mode, rdev);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_mkdir(const char *path, mode_t mode)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);	
 
-	res = mkdir(path, mode);
+	res = mkdir(fullpath, mode);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_unlink(const char *path)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);	
 
-	res = unlink(path);
+	res = unlink(fullpath);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_rmdir(const char *path)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);	
 
-	res = rmdir(path);
+	res = rmdir(fullpath);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_symlink(const char *from, const char *to)
 {
 	int res;
+	char* fullfrom;
+	char* fullto;
+	
+	fullfrom = xmp_fullpath(from);
+	fullto = xmp_fullpath(to);
 
-	res = symlink(from, to);
+	res = symlink(fullfrom, fullto);
 	if (res == -1)
 		return -errno;
 
+	free(fullfrom);
+	free(fullto);
 	return 0;
 }
 
 static int xmp_rename(const char *from, const char *to)
 {
 	int res;
+	char* fullfrom;
+	char* fullto;
+	
+	fullfrom = xmp_fullpath(from);
+	fullto = xmp_fullpath(to);
 
-	res = rename(from, to);
+	res = rename(fullfrom, fullto);
 	if (res == -1)
 		return -errno;
 
+	free(fullfrom);
+	free(fullto);
 	return 0;
 }
 
 static int xmp_link(const char *from, const char *to)
 {
 	int res;
+	char* fullfrom;
+	char* fullto;
+	
+	fullfrom = xmp_fullpath(from);
+	fullto = xmp_fullpath(to);
 
-	res = link(from, to);
+	res = link(fullfrom, fullto);
 	if (res == -1)
 		return -errno;
 
+	free(fullfrom);
+	free(fullto);
 	return 0;
 }
 
 static int xmp_chmod(const char *path, mode_t mode)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	res = chmod(path, mode);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_chown(const char *path, uid_t uid, gid_t gid)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	res = lchown(path, uid, gid);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_truncate(const char *path, off_t size)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	res = truncate(path, size);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
@@ -230,6 +323,8 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 {
 	int res;
 	struct timeval tv[2];
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	tv[0].tv_sec = ts[0].tv_sec;
 	tv[0].tv_usec = ts[0].tv_nsec / 1000;
@@ -240,18 +335,23 @@ static int xmp_utimens(const char *path, const struct timespec ts[2])
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	res = open(path, fi->flags);
 	if (res == -1)
 		return -errno;
 
 	close(res);
+
+	free(fullpath);	
 	return 0;
 }
 
@@ -260,6 +360,8 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 {
 	int fd;
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	(void) fi;
 	fd = open(path, O_RDONLY);
@@ -271,6 +373,8 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 		res = -errno;
 
 	close(fd);
+
+	free(fullpath);	
 	return res;
 }
 
@@ -279,6 +383,8 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 {
 	int fd;
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	(void) fi;
 	fd = open(path, O_WRONLY);
@@ -290,23 +396,29 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 		res = -errno;
 
 	close(fd);
+	free(fullpath);	
 	return res;
 }
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
 	int res;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
 	res = statvfs(path, stbuf);
 	if (res == -1)
 		return -errno;
 
+	free(fullpath);
 	return 0;
 }
 
 static int xmp_create(const char* path, mode_t mode, struct fuse_file_info* fi) {
 
     (void) fi;
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
 
     int res;
     res = creat(path, mode);
@@ -314,7 +426,7 @@ static int xmp_create(const char* path, mode_t mode, struct fuse_file_info* fi) 
 	return -errno;
 
     close(res);
-
+	free(fullpath);
     return 0;
 }
 
@@ -346,8 +458,12 @@ static int xmp_setxattr(const char *path, const char *name, const char *value,
 			size_t size, int flags)
 {
 	int res = lsetxattr(path, name, value, size, flags);
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
 	if (res == -1)
 		return -errno;
+	free(fullpath);	
 	return 0;
 }
 
@@ -355,24 +471,36 @@ static int xmp_getxattr(const char *path, const char *name, char *value,
 			size_t size)
 {
 	int res = lgetxattr(path, name, value, size);
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
 	if (res == -1)
 		return -errno;
+	free(fullpath);	
 	return res;
 }
 
 static int xmp_listxattr(const char *path, char *list, size_t size)
 {
 	int res = llistxattr(path, list, size);
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
 	if (res == -1)
 		return -errno;
+	free(fullpath);	
 	return res;
 }
 
 static int xmp_removexattr(const char *path, const char *name)
 {
 	int res = lremovexattr(path, name);
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
 	if (res == -1)
 		return -errno;
+	free(fullpath);	
 	return 0;
 }
 #endif /* HAVE_SETXATTR */
@@ -397,9 +525,11 @@ static struct fuse_operations xmp_oper = {
 	.read		= xmp_read,
 	.write		= xmp_write,
 	.statfs		= xmp_statfs,
-	.create         = xmp_create,
+	.create     = xmp_create,
 	.release	= xmp_release,
 	.fsync		= xmp_fsync,
+	.init		= xmp_init,
+	.destroy 	= xmp_destroy,
 #ifdef HAVE_SETXATTR
 	.setxattr	= xmp_setxattr,
 	.getxattr	= xmp_getxattr,
@@ -410,6 +540,28 @@ static struct fuse_operations xmp_oper = {
 
 int main(int argc, char *argv[])
 {
+	xmp_state *xmp_data;
+
+
+	/* Check General Input */
+    if(argc < 4){
+	fprintf(stderr, "usage: %s %s\n", argv[0],
+		"<key phrase> <mirror dir> <mount point>");
+	exit(EXIT_FAILURE);
+    }
+
 	umask(0);
-	return fuse_main(argc, argv, &xmp_oper, NULL);
+
+	xmp_data = malloc(sizeof(xmp_state));
+
+	// Pull the rootdir out of the argument list and save it in my
+    // internal data
+    xmp_data -> rootdir = realpath(argv[argc-2], NULL);
+    xmp_data -> key = strdup(argv[argc-3]);
+    argv[argc-3] = argv[argc-1];
+    argv[argc-2] = NULL;
+    argv[argc-1] = NULL;
+    argc-=2;
+
+	return fuse_main(argc, argv, &xmp_oper, xmp_data);
 }
