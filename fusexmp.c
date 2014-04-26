@@ -544,22 +544,12 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 	int res;
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
-	char valstring[5];
-	// 	//if encrypted, decrypt.
-	// xmp_getxattr(path, XATTR_NAME, valstring, 5);
-	// if(strcmp(valstring, "true")==0){
-	// 	xmp_decryptfile(path);
-	// }
 
 	res = open(fullpath, fi->flags);
 	if (res == -1)
 		return -errno;
 
 	close(res);
-	// //if was dec need to reencrypt
-	// if(strcmp(valstring, "true")==0){
-	// 	xmp_encryptfile(path);
-	// }
 	free(fullpath);	
 	return 0;
 }
@@ -607,21 +597,22 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 	char valstring[5];
+	//if encrypted, decrypt.
 
+	xmp_getxattr(path, XATTR_NAME, valstring, 5);
+	if(strcmp(valstring, "true")==0){
+		printf("\n\n VALSTRING IN WRITE: %s\n", valstring);
 
+		xmp_decryptfile(path);
+	}
 
-	// //if encrypted, decrypt.
+	//check if file exists, if it doesn't, set valstring so it'll be enc
+	//after write is complete.
+	if(access(fullpath, F_OK)){
+		printf("\n\n ACCESS FAIL IN WRITE: %s\n", valstring);
 
-	// xmp_getxattr(path, XATTR_NAME, valstring, 5);
-	// if(strcmp(valstring, "true")==0){
-	// 	xmp_decryptfile(path);
-	// }
-
-	// //check if file exists, if it doesn't, set valstring so it'll be enc
-	// //after write is complete.
-	// if(!access(fullpath, F_OK)){
-	// 	strcpy(valstring,"true");
-	// }
+		strcpy(valstring,"true");
+	}
 
 
 
@@ -637,8 +628,9 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 	close(fd);
 		//if was dec need to reencrypt
 		//make sure xt attribute set, since lazy
-	xmp_getxattr(path, XATTR_NAME, valstring, 5);
+	// xmp_getxattr(path, XATTR_NAME, valstring, 5);
 	if(strcmp(valstring, "true")==0){
+		printf("\n\n IN WRITE: VAL STRING IS: %s\n", valstring);
 		xmp_encryptfile(path);
 	}
 
