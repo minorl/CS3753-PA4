@@ -57,7 +57,7 @@
 
 #define XMP_DATA ((xmp_state *) fuse_get_context()->private_data)
 #define TMP_SUFFIX ".tmp"
-#define XATTR_NAME "user.enc."
+#define XATTR_NAME "user.pa4-encfs.encrypted"
 
 typedef struct {
 	char* rootdir;
@@ -212,6 +212,10 @@ int xmp_encryptfile(const char *path){
     //rename
     rename(temppath, fullpath);
 
+    //lazy want to sleeep
+    char* truestring = "true";
+    xmp_setxattr(path, XATTR_NAME, truestring, strlen(truestring), 0);
+
     free(fullpath);
     free(temppath);
     return 0;
@@ -260,6 +264,18 @@ int xmp_decryptfile(const char *path){
     if(fclose(inFile)){
 		perror("inFile fclose error\n");
     }
+
+
+    //dec copy now at temppath, delete original and rename
+    //delete
+    unlink(fullpath);
+    //rename
+    rename(temppath, fullpath);
+
+    //lazy want to sleeep
+    char* truestring = "true";
+    xmp_setxattr(path, XATTR_NAME, truestring, strlen(truestring), 0);
+
     free(fullpath);
     free(temppath);
     return 0;
@@ -528,13 +544,22 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 	int res;
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+	char valstring[5];
+	// 	//if encrypted, decrypt.
+	// xmp_getxattr(path, XATTR_NAME, valstring, 5);
+	// if(strcmp(valstring, "true")==0){
+	// 	xmp_decryptfile(path);
+	// }
 
 	res = open(fullpath, fi->flags);
 	if (res == -1)
 		return -errno;
 
 	close(res);
-
+	// //if was dec need to reencrypt
+	// if(strcmp(valstring, "true")==0){
+	// 	xmp_encryptfile(path);
+	// }
 	free(fullpath);	
 	return 0;
 }
@@ -546,8 +571,16 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	int res;
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
-
 	(void) fi;
+
+	char valstring[5];
+
+	//if encrypted, decrypt.
+	xmp_getxattr(path, XATTR_NAME, valstring, 5);
+	if(strcmp(valstring, "true") == 0){
+		xmp_decryptfile(path);
+	}
+
 	fd = open(fullpath, O_RDONLY);
 	if (fd == -1)
 		return -errno;
@@ -558,6 +591,10 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 
 	close(fd);
 
+	//if was dec need to reencrypt
+	if(strcmp(valstring, "true") == 0){
+		xmp_encryptfile(path);
+	}
 	free(fullpath);	
 	return res;
 }
@@ -569,8 +606,24 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 	int res;
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+	char valstring[5];
 
-	fprintf(stderr, "%s\n", "write");
+
+
+	// //if encrypted, decrypt.
+
+	// xmp_getxattr(path, XATTR_NAME, valstring, 5);
+	// if(strcmp(valstring, "true")==0){
+	// 	xmp_decryptfile(path);
+	// }
+
+	// //check if file exists, if it doesn't, set valstring so it'll be enc
+	// //after write is complete.
+	// if(!access(fullpath, F_OK)){
+	// 	strcpy(valstring,"true");
+	// }
+
+
 
 	(void) fi;
 	fd = open(fullpath, O_WRONLY);
@@ -582,6 +635,13 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 		res = -errno;
 
 	close(fd);
+		//if was dec need to reencrypt
+		//make sure xt attribute set, since lazy
+	xmp_getxattr(path, XATTR_NAME, valstring, 5);
+	if(strcmp(valstring, "true")==0){
+		xmp_encryptfile(path);
+	}
+
 	free(fullpath);	
 	return res;
 }
@@ -609,7 +669,7 @@ static int xmp_create(const char* path, mode_t mode, struct fuse_file_info* fi) 
 
     int res;
     res = creat(fullpath, mode);
-    
+
     xmp_encryptfile(path);
 
     //set xattr
