@@ -1,11 +1,8 @@
 # File: Makefile
-# By: Andy Sayler <www.andysayler.com>
-# Adopted from work by: Chris Wailes <chris.wailes@gmail.com>
+# By: Leslie Minor
 # Project: CSCI 3753 Programming Assignment 5
-# Creation Date: 2010/04/06
-# Modififed Date: 2012/04/12
 # Description:
-#	This is the Makefile for PA5.
+#	This is the Makefile for PA4.
 
 
 CC           = gcc
@@ -17,49 +14,24 @@ LLIBSOPENSSL = -lcrypto
 CFLAGS = -c -g -Wall -Wextra
 LFLAGS = -g -Wall -Wextra
 
-FUSE_EXAMPLES = fusehello fusexmp 
-XATTR_EXAMPLES = xattr-util
-OPENSSL_EXAMPLES = aes-crypt-util 
+ASSIGNMENT_CODE = pa4_fuse_encfs
+.PHONY: all clean
 
-.PHONY: all fuse-examples xattr-examples openssl-examples clean
+all: pa4 
 
-all: fuse-examples xattr-examples openssl-examples
+pa4: $(ASSIGNMENT_CODE)
 
-fuse-examples: $(FUSE_EXAMPLES)
-xattr-examples: $(XATTR_EXAMPLES)
-openssl-examples: $(OPENSSL_EXAMPLES)
-
-fusehello: fusehello.o
-	$(CC) $(LFLAGS) $^ -o $@ $(LLIBSFUSE)
-
-fusexmp: fusexmp.o aes-crypt.o
+pa4_fuse_encfs: pa4_fuse_encfs.o aes-crypt.o
 	$(CC) $(LFLAGS) $^ -o $@ $(LLIBSFUSE) $(LLIBSOPENSSL)
 
-xattr-util: xattr-util.o
-	$(CC) $(LFLAGS) $^ -o $@
-
-aes-crypt-util: aes-crypt-util.o aes-crypt.o
-	$(CC) $(LFLAGS) $^ -o $@ $(LLIBSOPENSSL)
-
-fusehello.o: fusehello.c
+pa4_fuse_encfs.o: pa4_fuse_encfs.c aes-crypt.h
 	$(CC) $(CFLAGS) $(CFLAGSFUSE) $<
-
-fusexmp.o: fusexmp.c aes-crypt.h
-	$(CC) $(CFLAGS) $(CFLAGSFUSE) $<
-
-xattr-util.o: xattr-util.c
-	$(CC) $(CFLAGS) $<
-
-aes-crypt-util.o: aes-crypt-util.c aes-crypt.h
-	$(CC) $(CFLAGS) $<
 
 aes-crypt.o: aes-crypt.c aes-crypt.h
 	$(CC) $(CFLAGS) $<
 
 clean:
-	rm -f $(FUSE_EXAMPLES)
-	rm -f $(XATTR_EXAMPLES)
-	rm -f $(OPENSSL_EXAMPLES)
+	rm -f $(ASSIGNMENT_CODE)
 	rm -f *.o
 	rm -f *~
 	rm -f handout/*~
