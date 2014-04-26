@@ -23,7 +23,7 @@
 */
 
 #define FUSE_USE_VERSION 28
-#define HAVE_SETXATTR
+#define HAVE_SETXATTR 
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -47,11 +47,17 @@
 #include <limits.h>
 #include <stdlib.h>
 
+#include "aes-crypt.h"
+
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
 
+
+
 #define XMP_DATA ((xmp_state *) fuse_get_context()->private_data)
+#define TMP_SUFFIX ".tmp"
+#define XATTR_NAME "user.enc."
 
 typedef struct {
 	char* rootdir;
@@ -83,6 +89,180 @@ static char* xmp_fullpath(const char *path)
     strcat(fullpath, path); 
 
     return fullpath;
+}
+
+static char* xmp_temppath(const char* path)
+{
+	char* temppath;
+	int pathlen;
+
+	pathlen = strlen(path) + strlen(TMP_SUFFIX) +1;
+
+	temppath = malloc(pathlen*sizeof(char));
+
+	strcpy(temppath, path);
+	strcat(temppath, TMP_SUFFIX);
+
+	return temppath;
+}
+
+#ifdef HAVE_SETXATTR
+static int xmp_setxattr(const char *path, const char *name, const char *value,
+			size_t size, int flags)
+{
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
+	int res = lsetxattr(fullpath, name, value, size, flags);
+
+
+	if (res == -1)
+		return -errno;
+	free(fullpath);	
+	return 0;
+}
+
+static int xmp_getxattr(const char *path, const char *name, char *value,
+			size_t size)
+{
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+	int res = lgetxattr(fullpath, name, value, size);
+
+	if (res == -1)
+		return -errno;
+	free(fullpath);	
+	return res;
+}
+
+static int xmp_listxattr(const char *path, char *list, size_t size)
+{
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
+	int res = llistxattr(fullpath, list, size);
+
+	if (res == -1)
+		return -errno;
+	free(fullpath);	
+	return res;
+}
+
+static int xmp_removexattr(const char *path, const char *name)
+{
+	char* fullpath;
+	fullpath = xmp_fullpath(path);
+
+	int res = lremovexattr(fullpath, name);
+
+	if (res == -1)
+		return -errno;
+	free(fullpath);	
+	return 0;
+}
+#endif /* HAVE_SETXATTR */
+
+int xmp_encryptfile(const char *path){
+	    /* Local vars */
+    int action = 0;
+    FILE* inFile = NULL;
+    FILE* outFile = NULL;
+    char* key_str = NULL;
+
+    char* fullpath;
+    char* temppath;
+    fullpath = xmp_fullpath(path);
+    temppath = xmp_temppath(fullpath);
+
+    /* Encrypt Case */
+
+	/* Set Vars */
+	key_str = XMP_DATA->key;
+	action = 1;
+    
+
+    /* Open Files */
+    inFile = fopen(fullpath, "rb");
+	if(!inFile){
+		perror("infile fopen error");
+		return EXIT_FAILURE;
+	}
+    outFile = fopen(temppath, "wb+");
+    if(!outFile){
+		perror("outfile fopen error");
+		return EXIT_FAILURE;
+    }
+
+    /* Perform do_crpt action (encrypt, decrypt, copy) */
+    if(!do_crypt(inFile, outFile, action, key_str)){
+		fprintf(stderr, "do_crypt failed\n");
+    }
+
+    /* Cleanup */
+    if(fclose(outFile)){
+        perror("outFile fclose error\n");
+    }
+    if(fclose(inFile)){
+		perror("inFile fclose error\n");
+    }
+
+    //enc copy now at temppath, delete original and rename
+    //delete
+    unlink(fullpath);
+    //rename
+    rename(temppath, fullpath);
+
+    free(fullpath);
+    free(temppath);
+    return 0;
+}
+
+int xmp_decryptfile(const char *path){
+	    /* Local vars */
+    int action = 0;
+    FILE* inFile = NULL;
+    FILE* outFile = NULL;
+    char* key_str = NULL;
+
+    char* fullpath;
+    char* temppath;
+    fullpath = xmp_fullpath(path);
+    temppath = xmp_temppath(fullpath);
+
+    /* Encrypt Case */
+
+	/* Set Vars */
+	key_str = XMP_DATA->key;
+	action = 0;
+    
+
+    /* Open Files */
+    inFile = fopen(fullpath, "rb");
+	if(!inFile){
+		perror("infile fopen error");
+		return EXIT_FAILURE;
+	}
+    outFile = fopen(temppath, "wb+");
+    if(!outFile){
+		perror("outfile fopen error");
+		return EXIT_FAILURE;
+    }
+
+    /* Perform do_crpt action (encrypt, decrypt, copy) */
+    if(!do_crypt(inFile, outFile, action, key_str)){
+		fprintf(stderr, "do_crypt failed\n");
+    }
+
+    /* Cleanup */
+    if(fclose(outFile)){
+        perror("outFile fclose error\n");
+    }
+    if(fclose(inFile)){
+		perror("inFile fclose error\n");
+    }
+    free(fullpath);
+    free(temppath);
+    return 0;
 }
 
 static int xmp_getattr(const char *path, struct stat *stbuf)
@@ -390,6 +570,8 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
 
+	fprintf(stderr, "%s\n", "write");
+
 	(void) fi;
 	fd = open(fullpath, O_WRONLY);
 	if (fd == -1)
@@ -423,11 +605,17 @@ static int xmp_create(const char* path, mode_t mode, struct fuse_file_info* fi) 
     (void) fi;
 	char* fullpath;
 	fullpath = xmp_fullpath(path);
+	char* truestring = "true";
 
     int res;
     res = creat(fullpath, mode);
+    
+    xmp_encryptfile(path);
+
+    //set xattr
+    xmp_setxattr(path, XATTR_NAME, truestring, strlen(truestring), 0);
     if(res == -1)
-	return -errno;
+		return -errno;
 
     close(res);
 	free(fullpath);
@@ -457,61 +645,7 @@ static int xmp_fsync(const char *path, int isdatasync,
 	return 0;
 }
 
-#ifdef HAVE_SETXATTR
-static int xmp_setxattr(const char *path, const char *name, const char *value,
-			size_t size, int flags)
-{
-	char* fullpath;
-	fullpath = xmp_fullpath(path);
 
-	int res = lsetxattr(fullpath, name, value, size, flags);
-
-
-	if (res == -1)
-		return -errno;
-	free(fullpath);	
-	return 0;
-}
-
-static int xmp_getxattr(const char *path, const char *name, char *value,
-			size_t size)
-{
-	char* fullpath;
-	fullpath = xmp_fullpath(path);
-	int res = lgetxattr(fullpath, name, value, size);
-
-	if (res == -1)
-		return -errno;
-	free(fullpath);	
-	return res;
-}
-
-static int xmp_listxattr(const char *path, char *list, size_t size)
-{
-	char* fullpath;
-	fullpath = xmp_fullpath(path);
-
-	int res = llistxattr(fullpath, list, size);
-
-	if (res == -1)
-		return -errno;
-	free(fullpath);	
-	return res;
-}
-
-static int xmp_removexattr(const char *path, const char *name)
-{
-	char* fullpath;
-	fullpath = xmp_fullpath(path);
-
-	int res = lremovexattr(fullpath, name);
-
-	if (res == -1)
-		return -errno;
-	free(fullpath);	
-	return 0;
-}
-#endif /* HAVE_SETXATTR */
 
 static struct fuse_operations xmp_oper = {
 	.getattr	= xmp_getattr,
