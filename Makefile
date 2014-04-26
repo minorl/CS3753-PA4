@@ -34,10 +34,3 @@ clean:
 	rm -f $(ASSIGNMENT_CODE)
 	rm -f *.o
 	rm -f *~
-	rm -f handout/*~
-	rm -f handout/*.log
-	rm -f handout/*.aux
-	rm -f handout/*.out
-
-
-
